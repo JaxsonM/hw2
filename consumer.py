@@ -31,7 +31,8 @@ def process_requests():
             file_object = s3.get_object(Bucket=BUCKET_REQUESTS, Key=file_key)
             request_content = file_object['Body'].read().decode('utf-8')
             widget_request = json.loads(request_content)
-            print(widget_request['widgetId'])
+            print(f"Working on: {widget_request['widgetId']} Type: {widget_request['type']}")
+            time.sleep(3)
 
             # Perform the operation based on the request type
             if widget_request['type'] == 'create':
@@ -43,27 +44,19 @@ def process_requests():
             elif widget_request['type'] == 'update':
                 widget_id = widget_request['widgetId']
                 new_data = widget_request['otherAttributes']
-                s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
-                print(f"Deleted: {widget_request['widgetId']}")
-
-                # Deleting the object from BUCKET_REQUESTS and continuing to the next iteration
-                s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
-                continue
 
             elif widget_request['type'] == 'delete':
                 widget_id = widget_request['widgetId']
                 # Delete the specified widget object
-                s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
-
-                # Deleting the object from BUCKET_REQUESTS and continuing to the next iteration
-                s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
-                continue
+                #s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
 
             else:
                 print(f"Unknown request type: {widget_request['type']}")
 
             # Delete the request object from the bucket
             s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
+            print("Deleted Request\n")
+            time.sleep(1)
 
         except NoCredentialsError:
             print("Credentials not available")
