@@ -3,14 +3,24 @@ import json
 import uuid
 import time
 import argparse
+import logging
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
-# Initialize a session using Amazon Simple Storage Service (S3)
-session = boto3.session.Session()
-s3 = session.client('s3')
+# Create a logger for the module
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  # Set the logging level
 
+# Create a handler for writing log messages to a file
+file_handler = logging.FileHandler('consumer.log', mode='a')
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 
+# Create another handler for writing log messages to the console
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 
+# Add the handlers to the logger
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 def flatten_attributes(widget_request):
     # Start with the existing widget_request (excluding 'otherAttributes')
@@ -23,15 +33,18 @@ def flatten_attributes(widget_request):
     return flattened_data
 
 
-def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
+def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB, loop=True):
+    # Initialize a session using Amazon Simple Storage Service (S3)
+   session = boto3.session.Session()
+   s3 = session.client('s3')
    while True:  # This is the outer loop that will keep the function running indefinitely
         try:
             # List the objects within the specified bucket
             response = s3.list_objects_v2(Bucket=BUCKET_REQUESTS)
-
+            #print(f"\nRESPONSE: {response}\n")
             # Check if the bucket is empty
             if response['KeyCount'] == 0:
-                print("No requests to process. Waiting for new requests...")
+                logger.info("No requests to process. Waiting for new requests...")
                 time.sleep(0.1)  # Wait for 100ms
                 continue  # This will skip the rest of the loop and start from the beginning
 
@@ -44,7 +57,7 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
             request_content = file_object['Body'].read().decode('utf-8')
             widget_request = json.loads(request_content)
             #print(widget_request)
-            print(f"Working on: {widget_request['widgetId']} Type: {widget_request['type']}")
+            logger.info(f"Working on: {widget_request['widgetId']} Type: {widget_request['type']}")
             time.sleep(1)
             if destination == "bucket":
                 # Perform the operation based on the request type
@@ -60,7 +73,7 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
     
                     # Upload the new widget object to the web bucket
                     s3.put_object(Body=json.dumps(widget_object), Bucket=BUCKET_WEB, Key=f'widgets/{owner_key}/{widget_id}')
-                    print(f"UPLOADED with key: widgets/{owner_key}/{widget_id}")
+                    logger.info(f"UPLOADED with key: widgets/{owner_key}/{widget_id}")
                     time.sleep(1)
     
                 elif widget_request['type'] == 'update':
@@ -73,10 +86,9 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
                     #s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
     
                 else:
-                    print(f"Unknown request type: {widget_request['type']}")
+                    logger.info(f"Unknown request type: {widget_request['type']}")
             elif destination == "dynamo":
                 dynamodb = session.resource('dynamodb')
-                print(BUCKET_WEB)
                 table = dynamodb.Table(BUCKET_WEB) 
 
                 if widget_request['type'] == 'create':
@@ -84,7 +96,7 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
                     widget_request["id"] = widget_id  # Change here
                     flattened_widget = flatten_attributes(widget_request)
                     table.put_item(Item=flattened_widget)  # Store the flattened widget in the DynamoDB table
-                    print(f"Widget {widget_id} added to DynamoDB.")
+                    logger.info(f"Widget {widget_id} added to DynamoDB.")
     
                 elif widget_request['type'] == 'update':
                     widget_id = widget_request['widgetId']
@@ -96,21 +108,17 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
                     #s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
     
                 else:
-                    print(f"Unknown request type: {widget_request['type']}")
+                    logger.info(f"Unknown request type: {widget_request['type']}")
 
             # Delete the request object from the bucket
             s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
-            print("Deleted Request\n")
+            logger.info("Deleted Request\n")
             time.sleep(1)
+            if not loop:
+                break
 
-        except NoCredentialsError:
-            print("Credentials not available")
-            break
-        except PartialCredentialsError:
-            print("Incomplete credentials")
-            break
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
             break
        # Define your buckets
     #$ python your_script_name.py bucket --bucket-requests usu-cs5260-percy-requests --bucket-web usu-cs5250-percy-web
