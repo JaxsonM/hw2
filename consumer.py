@@ -31,15 +31,25 @@ def process_requests():
             file_object = s3.get_object(Bucket=BUCKET_REQUESTS, Key=file_key)
             request_content = file_object['Body'].read().decode('utf-8')
             widget_request = json.loads(request_content)
+            #print(widget_request)
             print(f"Working on: {widget_request['widgetId']} Type: {widget_request['type']}")
-            time.sleep(3)
+            time.sleep(1)
 
             # Perform the operation based on the request type
             if widget_request['type'] == 'create':
-                widget_id = str(uuid.uuid4())  # create a new UUID for the widget
-                widget_object = {"widget_id": widget_id}
+                widget_id = str(uuid.uuid4())  # Create a new UUID for the widget
+
+                # Incorporate all data from the widget request into the widget_object
+                widget_object = widget_request.copy()
+                widget_object["widget_id"] = widget_id
+
+                # Compute the owner key
+                owner_key = widget_request['owner'].replace(" ", "-").lower()
+
                 # Upload the new widget object to the web bucket
-                s3.put_object(Body=json.dumps(widget_object), Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
+                s3.put_object(Body=json.dumps(widget_object), Bucket=BUCKET_WEB, Key=f'widgets/{owner_key}/{widget_id}')
+                print(f"UPLOADED with key: widgets/{owner_key}/{widget_id}")
+                time.sleep(1)
 
             elif widget_request['type'] == 'update':
                 widget_id = widget_request['widgetId']
