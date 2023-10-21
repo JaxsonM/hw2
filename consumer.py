@@ -37,11 +37,11 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB, loop=True):
     # Initialize a session using Amazon Simple Storage Service (S3)
    session = boto3.session.Session()
    s3 = session.client('s3')
-   while True:  # This is the outer loop that will keep the function running indefinitely
+   while True:
         try:
             # List the objects within the specified bucket
             response = s3.list_objects_v2(Bucket=BUCKET_REQUESTS)
-            #print(f"\nRESPONSE: {response}\n")
+
             # Check if the bucket is empty
             if response['KeyCount'] == 0:
                 logger.info("No requests to process. Waiting for new requests...")
@@ -56,7 +56,7 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB, loop=True):
             file_object = s3.get_object(Bucket=BUCKET_REQUESTS, Key=file_key)
             request_content = file_object['Body'].read().decode('utf-8')
             widget_request = json.loads(request_content)
-            #print(widget_request)
+
             logger.info(f"Working on: {widget_request['widgetId']} Type: {widget_request['type']}")
             time.sleep(1)
             if destination == "bucket":
@@ -87,6 +87,7 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB, loop=True):
     
                 else:
                     logger.info(f"Unknown request type: {widget_request['type']}")
+                    
             elif destination == "dynamo":
                 dynamodb = session.resource('dynamodb')
                 table = dynamodb.Table(BUCKET_WEB) 
@@ -114,15 +115,14 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB, loop=True):
             s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
             logger.info("Deleted Request\n")
             time.sleep(1)
+            # Break out of the loop if doing a unit test
             if not loop:
                 break
 
         except Exception as e:
             logger.error(f"An error occurred: {e}")
             break
-       # Define your buckets
-    #$ python your_script_name.py bucket --bucket-requests usu-cs5260-percy-requests --bucket-web usu-cs5250-percy-web
-    # USAGE
+        
   # python consumer.py --requests_bucket usu-cs5260-percy-requests --destination_flag -wb --destination_name usu-cs5250-percy-web
 
 if __name__ == "__main__":
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     parser.add_argument('--requests_bucket', required=True, help="Name of the S3 bucket for requests.")
 
     # Define the 'destination_flag' argument for either bucket (-wb) or dynamo (-dwt)
-    parser.add_argument('--destination_flag', required=True, choices=['wb', 'dwt'], help="Destination flag: '-wb' for S3 bucket or '-dwt' for DynamoDB table.")
+    parser.add_argument('--destination_flag', required=True, choices=['wb', 'dwt'], help="Destination flag: 'wb' for S3 bucket or 'dwt' for DynamoDB table.")
 
     # Define the 'destination_name' argument for the name of the bucket or table to upload to
     parser.add_argument('--destination_name', required=True, help="Name of the S3 bucket or DynamoDB table to upload to.")
@@ -146,7 +146,6 @@ if __name__ == "__main__":
     else:
         destination = "dynamo"
         BUCKET_WEB = args.destination_name
-        # If using DynamoDB, you can set the table name using 'args.destination_name' when needed
 
     # Use the parsed arguments in the function
     process_requests(destination, args.requests_bucket, BUCKET_WEB)
