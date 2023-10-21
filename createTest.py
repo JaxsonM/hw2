@@ -1,43 +1,43 @@
 import unittest
-from unittest.mock import patch, Mock
-import consumer
+import boto3
+import consumer  # Assuming 'consumer' is the name of your module
 import json
+from moto import mock_s3
 
 class TestCreateOperation(unittest.TestCase):
 
-    @patch('consumer.boto3.session.Session')  # Mock the boto3 session
-    def test_create_operation(self, mock_session):
-    # Mocking the s3 client creation
-        mock_s3_client = Mock()
+    @mock_s3
+    def test_create_operation(self):
+        # Set up the mock S3 environment
+        conn = boto3.client('s3', region_name='us-east-1')
+        BUCKET_REQUESTS = 'sample_bucket_requests'
+        BUCKET_WEB = 'sample_bucket_web'
+        conn.create_bucket(Bucket=BUCKET_REQUESTS)
+        conn.create_bucket(Bucket=BUCKET_WEB)
 
-    # This ensures that when session.client('s3') is called, it returns mock_s3_client.
-        mock_session.return_value.client.return_value = mock_s3_client
-        
+        # Sample widget request
         widget_request_content = {
             'type': 'create',
             'widgetId': 'sample_widget_id',
+            'owner': 'sample_owner',
             'otherAttributes': [
                 {'name': 'color', 'value': 'blue'},
                 {'name': 'size', 'value': 'large'}
             ]
         }
 
-        # Mocking the response of s3.list_objects_v2 to simulate having 1 object
-        mock_s3_client.list_objects_v2.return_value = {
-            'KeyCount': 1,
-            'Contents': [{'Key': 'sample_key'}]
-        }
-
-        # Mocking the response of s3.get_object to simulate retrieving our sample widget request
-        mock_s3_client.get_object.return_value = {
-            'Body': Mock(read=lambda: json.dumps(widget_request_content).encode('utf-8'))
-        }
+        # Add the widget request to the bucket
+        conn.put_object(Bucket=BUCKET_REQUESTS, Key='sample_key', Body=json.dumps(widget_request_content))
+        #print("HELLO")
 
         # Call the process_requests function
-        consumer.process_requests("bucket", "sample_bucket_requests", "sample_bucket_web")
+        consumer.process_requests("bucket", BUCKET_REQUESTS, BUCKET_WEB, False)
 
-        # Check if the s3.put_object method was called, indicating a successful create operation
-        self.assertTrue(mock_s3_client.put_object.called)
+        # Check if the widget was added to the BUCKET_WEB
+        objects_in_web_bucket = conn.list_objects_v2(Bucket=BUCKET_WEB)
+        self.assertEqual(objects_in_web_bucket['KeyCount'], 1)
+
+        # Further checks can be done based on your expectations, e.g., checking the content of the uploaded widget, etc.
 
 if __name__ == '__main__':
     unittest.main()
