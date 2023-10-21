@@ -2,15 +2,14 @@ import boto3
 import json
 import uuid
 import time
+import argparse
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 # Initialize a session using Amazon Simple Storage Service (S3)
 session = boto3.session.Session()
 s3 = session.client('s3')
 
-# Define your buckets
-BUCKET_REQUESTS = 'usu-cs5260-percy-requests'
-BUCKET_WEB = 'usu-cs5250-percy-web'
+
 
 
 def flatten_attributes(widget_request):
@@ -24,7 +23,7 @@ def flatten_attributes(widget_request):
     return flattened_data
 
 
-def process_requests(destination):
+def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
    while True:  # This is the outer loop that will keep the function running indefinitely
         try:
             # List the objects within the specified bucket
@@ -112,8 +111,32 @@ def process_requests(destination):
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
             break
+       # Define your buckets
+    #$ python your_script_name.py bucket --bucket-requests usu-cs5260-percy-requests --bucket-web usu-cs5250-percy-web
+    # USAGE
+  # python consumer.py --requests_bucket usu-cs5260-percy-requests --destination_flag -wb --destination_name usu-cs5250-percy-web
 
 if __name__ == "__main__":
-    destination = "dynamo"
-    #destination = "bucket"
-    process_requests(destination)
+    parser = argparse.ArgumentParser(description="Process widget requests to either S3 or DynamoDB.")
+
+    # Define the 'requests_bucket' argument for the bucket where requests will be
+    parser.add_argument('--requests_bucket', required=True, help="Name of the S3 bucket for requests.")
+
+    # Define the 'destination_flag' argument for either bucket (-wb) or dynamo (-dwt)
+    parser.add_argument('--destination_flag', required=True, choices=['wb', 'dwt'], help="Destination flag: '-wb' for S3 bucket or '-dwt' for DynamoDB table.")
+
+    # Define the 'destination_name' argument for the name of the bucket or table to upload to
+    parser.add_argument('--destination_name', required=True, help="Name of the S3 bucket or DynamoDB table to upload to.")
+
+    args = parser.parse_args()  # Parse the arguments
+
+    # Set the destination based on the flag
+    if args.destination_flag == 'wb':
+        destination = "bucket"
+        BUCKET_WEB = args.destination_name
+    else:
+        destination = "dynamo"
+        # If using DynamoDB, you can set the table name using 'args.destination_name' when needed
+
+    # Use the parsed arguments in the function
+    process_requests(destination, args.requests_bucket, BUCKET_WEB if destination == "bucket" else None)
