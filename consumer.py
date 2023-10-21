@@ -76,7 +76,8 @@ def process_requests(destination, BUCKET_REQUESTS, BUCKET_WEB):
                     print(f"Unknown request type: {widget_request['type']}")
             elif destination == "dynamo":
                 dynamodb = session.resource('dynamodb')
-                table = dynamodb.Table('widgets') 
+                print(BUCKET_WEB)
+                table = dynamodb.Table(BUCKET_WEB) 
 
                 if widget_request['type'] == 'create':
                     widget_id = str(uuid.uuid4())  # Create a new UUID for the widget
@@ -136,7 +137,8 @@ if __name__ == "__main__":
         BUCKET_WEB = args.destination_name
     else:
         destination = "dynamo"
+        BUCKET_WEB = args.destination_name
         # If using DynamoDB, you can set the table name using 'args.destination_name' when needed
 
     # Use the parsed arguments in the function
-    process_requests(destination, args.requests_bucket, BUCKET_WEB if destination == "bucket" else None)
+    process_requests(destination, args.requests_bucket, BUCKET_WEB)
