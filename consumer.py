@@ -1,6 +1,7 @@
 import boto3
 import json
 import uuid
+import time
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 # Initialize a session using Amazon Simple Storage Service (S3)
@@ -20,10 +21,9 @@ def process_requests():
             # Check if the bucket is empty
             if response['KeyCount'] == 0:
                 print("No requests to process. Waiting for new requests...")
-                # Here, you should implement a waiting mechanism (like time.sleep or a more complex scheduler)
-                continue
+                time.sleep(1)
 
-            # If there are objects, we'll only handle the first one as specified
+            # If there are objects, we'll only handle the first one
             first_object = response['Contents'][0]
             file_key = first_object['Key']
 
@@ -31,33 +31,38 @@ def process_requests():
             file_object = s3.get_object(Bucket=BUCKET_REQUESTS, Key=file_key)
             request_content = file_object['Body'].read().decode('utf-8')
             widget_request = json.loads(request_content)
+            print(widget_request['widgetId'])
 
             # Perform the operation based on the request type
             if widget_request['type'] == 'create':
                 widget_id = str(uuid.uuid4())  # create a new UUID for the widget
-                widget_object = {"widget_id": widget_id}  # This would be your actual widget object
-
+                widget_object = {"widget_id": widget_id}
                 # Upload the new widget object to the web bucket
                 s3.put_object(Body=json.dumps(widget_object), Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
 
             elif widget_request['type'] == 'update':
-                # Assuming the request contains an 'id' field specifying which widget to update
-                widget_id = widget_request['id']
-                new_data = widget_request['data']  # This would contain new data for the widget
+                widget_id = widget_request['widgetId']
+                new_data = widget_request['otherAttributes']
+                s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
+                print(f"Deleted: {widget_request['widgetId']}")
 
-                # Here, you would generally want to retrieve the object first, update fields, then put it back
-                # For simplicity, we're assuming we're just replacing it with new data
-                s3.put_object(Body=json.dumps(new_data), Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
+                # Deleting the object from BUCKET_REQUESTS and continuing to the next iteration
+                s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
+                continue
 
             elif widget_request['type'] == 'delete':
-                widget_id = widget_request['id']
+                widget_id = widget_request['widgetId']
                 # Delete the specified widget object
                 s3.delete_object(Bucket=BUCKET_WEB, Key=f'widgets/{widget_id}')
+
+                # Deleting the object from BUCKET_REQUESTS and continuing to the next iteration
+                s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
+                continue
 
             else:
                 print(f"Unknown request type: {widget_request['type']}")
 
-            # After processing, delete the request object from the bucket
+            # Delete the request object from the bucket
             s3.delete_object(Bucket=BUCKET_REQUESTS, Key=file_key)
 
         except NoCredentialsError:
@@ -66,9 +71,6 @@ def process_requests():
         except PartialCredentialsError:
             print("Incomplete credentials")
             break
-        except KeyError:
-            print("Waiting for new requests...")  # Handles the case of an empty bucket
-            # Implement waiting mechanism here
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
             break
