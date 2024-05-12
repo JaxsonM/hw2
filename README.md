@@ -1,55 +1,42 @@
-# hw2
+# HW2 - Widget Request Processor
 ---
-# Widget Request Processor
 
-This script is designed to process widget requests and either stores the result in an S3 bucket or a DynamoDB table, based on the provided parameters. It reads the requests from a designated S3 bucket and takes action depending on the type of request (create, update, or delete).
+## Overview
+This Python script efficiently handles widget requests by processing them and storing the results in AWS S3 buckets or DynamoDB tables. Designed for an AWS services class, the project showcases my ability to integrate various AWS services using Python and Boto3. It provides valuable insight into the practical application of cloud services for data handling and storage, demonstrating skills that are critical in cloud software development.
+
+## Technologies Used
+- **Python**: Scripting language for the core application.
+- **AWS S3**: Object storage service used for storing widget requests and processed data.
+- **AWS DynamoDB**: NoSQL database service used for efficient data retrieval and management.
+- **Boto3**: AWS SDK for Python, allowing Python developers to write software that uses services like Amazon S3 and Amazon DynamoDB.
+- **Logging**: Utilization of Python's logging module to provide insight into the application's operation.
 
 ## Prerequisites
-
 - AWS CLI installed and configured with appropriate permissions.
-- Python 3.x
-- Boto3 installed (`pip install boto3`).
+- Python 3.x installed.
+- Boto3 library installed (`pip install boto3`).
 
-## Logging
+## Setup and Execution
+Clone the repository and navigate to the script's directory. Execute the script using the following command:
 
-The program provides both console and file logging. Logs are written to `consumer.log` in the same directory where the script is executed.
-
-## How to Use
-
-1. Clone the repository or download the `consumer.py` script.
-2. Navigate to the script's directory using your terminal.
-3. Execute the script using the following command format:
-
-```
+```bash
 python consumer.py --requests_bucket [REQUESTS_BUCKET_NAME] --destination_flag [DESTINATION_FLAG] --destination_name [DESTINATION_NAME]
 ```
 
 ### Parameters:
+- `--requests_bucket`: The name of the S3 bucket containing the widget requests.
+- `--destination_flag`: Determines the storage destination (`wb` for S3 bucket, `dwt` for DynamoDB).
+- `--destination_name`: The name of the S3 bucket or DynamoDB table for data storage.
 
-- `--requests_bucket` : Name of the S3 bucket that contains the widget requests. This is a required parameter.
-  
-- `--destination_flag` : Determines where the processed data will be stored. The options are:
-  - `wb` : Data will be stored in an S3 bucket.
-  - `dwt` : Data will be stored in a DynamoDB table.
-  
-  This is a required parameter.
-
-- `--destination_name` : Name of the S3 bucket or DynamoDB table where the processed data will be stored. This is a required parameter.
-
-#### Example:
-
-```
-python consumer.py --requests_bucket usu-cs5260-percy-requests --destination_flag -wb --destination_name usu-cs5250-percy-web
+#### Example Command:
+```bash
+python consumer.py --requests_bucket my-request-bucket --destination_flag wb --destination_name my-storage-bucket
 ```
 
 ## Functionality
+The script continuously monitors the specified S3 bucket for new widget requests and processes them according to their type (create, update, or delete). Data storage is managed based on the specified destination flag, ensuring that each request is handled promptly and the source bucket is kept clean by removing processed requests.
 
-The script continuously polls the provided `--requests_bucket` to check for any new widget requests. If a new request is found, it processes the request as per its type (`create`, `update`, or `delete`). 
-
-If the `--destination_flag` is set to `wb`, the processed data is stored in the specified S3 bucket (`--destination_name`). If the flag is set to `dwt`, the processed data is stored in the specified DynamoDB table.
-
-Once the request is processed, it is deleted from the `--requests_bucket`.
+## Unit Testing
+Includes unit tests for S3 and DynamoDB operations using the `unittest` framework and `moto` library to mock AWS services, ensuring that functionality is verified without the need for actual AWS service interaction.
 
 ---
-
-Feel free to adjust the content as needed or add additional sections for any extra details or configurations you might have.
